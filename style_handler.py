@@ -14,7 +14,7 @@ def _get_style_model_and_losses(cnn,
                                style_layers=['conv_1', 'conv_2', 'conv_3', 'conv_4', 'conv_5']):
 
     # normalization module
-    normalization = Normalization(cnn.norm_mean, cnn.norm_std).to(cnn.device)
+    normalization = Normalization(cnn.norm_mean, cnn.norm_std, cnn.device).to(cnn.device)
 
     # just in order to have an iterable access to or list of content/syle losses
     content_losses = []
@@ -77,7 +77,7 @@ def _get_style_model_and_losses(cnn,
 
 
 def run_style_transfer(cnn, content_img, style_img, input_img, num_steps=300,
-                       style_weight=1000000, content_weight=1):
+                       style_weight=1000000, content_weight=1, checkpoint_every=0):
     """
     Run the style transfer.
     """
@@ -100,6 +100,7 @@ def run_style_transfer(cnn, content_img, style_img, input_img, num_steps=300,
     run = [0]
     best_image = [None]
     best_loss = [None]
+    checkpoints = []
 
     print('Optimizing..')
     while run[0] <= num_steps:
@@ -138,6 +139,9 @@ def run_style_transfer(cnn, content_img, style_img, input_img, num_steps=300,
                     f'\tBest Style Loss : {best_loss[0].item():4f}', sep='\n', end="\n\n"
                 )
 
+            if checkpoint_every > 0 and run[0] % checkpoint_every == 0:
+                checkpoints.append(input_img.clone())
+
             return style_score + content_score
 
         optimizer.step(closure)
@@ -147,4 +151,4 @@ def run_style_transfer(cnn, content_img, style_img, input_img, num_steps=300,
         input_img[0].clamp_(0, 1)
 
     print("Done")
-    return best_image[0]
+    return best_image[0], checkpoints
