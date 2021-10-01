@@ -51,4 +51,4 @@ if __name__ == '__main__':
     ts = time.time()
     save_tensor_image(output, f"{OUTPUT_DIR}/{ts}_output.png")
     for idx, c in enumerate(checkpoints):
-        save_tensor_image(output, f"{CHECKPOINT_DIR}/{ts}_checkoint_{idx}.png")
+        save_tensor_image(c, f"{CHECKPOINT_DIR}/{ts}_checkoint_{idx}.png")
