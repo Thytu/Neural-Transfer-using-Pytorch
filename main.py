@@ -1,11 +1,10 @@
+import os
 import time
 import argparse
-import os
-from os.path import isfile as isfile
 
+from VGG19 import load_model
 from style_handler import run_style_transfer, create_noise_input
 from data_handler import show_tensor_image, load_image_to_tensor, save_tensor_image
-from VGG19 import load_model
 
 
 def init_parser():
@@ -33,8 +32,8 @@ if __name__ == '__main__':
         os.makedirs(CHECKPOINT_DIR)
 
     STYLE_IMG, CONTENT_IMG, NUM_STEPS, BLANCK_NOISE, CHECKPOINT_EVERY = args.style_image, args.content_image, args.steps, args.blanck_noise, args.checkpoint
-    assert isfile(STYLE_IMG), "Style image not found"
-    assert isfile(CONTENT_IMG), "Content image not found"
+    assert os.path.isfile(STYLE_IMG), "Style image not found"
+    assert os.path.isfile(CONTENT_IMG), "Content image not found"
 
     STYLE_IMG = load_image_to_tensor(STYLE_IMG)
     CONTENT_IMG = load_image_to_tensor(CONTENT_IMG)
@@ -46,9 +45,10 @@ if __name__ == '__main__':
     show_tensor_image(INPUT_IMG, title='Input Image')
 
     output, checkpoints = run_style_transfer(cnn, CONTENT_IMG, STYLE_IMG, INPUT_IMG, num_steps=NUM_STEPS, checkpoint_every=CHECKPOINT_EVERY)
-    show_tensor_image(output, title='Output Image')
 
     ts = time.time()
     save_tensor_image(output, f"{OUTPUT_DIR}/{ts}_output.png")
     for idx, c in enumerate(checkpoints):
         save_tensor_image(c, f"{CHECKPOINT_DIR}/{ts}_checkoint_{idx}.png")
+
+    show_tensor_image(output, title='Output Image')
