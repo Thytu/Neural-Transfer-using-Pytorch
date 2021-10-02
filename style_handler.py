@@ -49,8 +49,7 @@ def _get_style_model_and_losses(cnn,
         model.add_module(name, layer)
 
         if name in content_layers:
-            # add content loss:
-            target = model(content_img).detach()
+            target = model(content_img).detach() # add content loss
 
             content_loss = ContentLoss(target)
 
@@ -58,8 +57,7 @@ def _get_style_model_and_losses(cnn,
             content_losses.append(content_loss)
 
         if name in style_layers:
-            # add style loss:
-            target_feature = model(style_img).detach()
+            target_feature = model(style_img).detach() # add style loss
 
             style_loss = StyleLoss(target_feature)
 
