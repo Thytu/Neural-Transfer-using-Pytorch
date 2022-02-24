@@ -1,17 +1,46 @@
 import torch
-import torch.optim as optim
 import torch.nn as nn
+import torch.optim as optim
 
+from typing import List
 from normalization import Normalization
 from loss import ContentLoss, StyleLoss
 
-def create_noise_input(content_img, device='cpu'):
-    return torch.randn(content_img.data.size(), device)
+def create_noise_input(content_img, width=None, height=None, device='cpu'):
+    """
+    Create a noise input image based on the content image.
 
-def _get_style_model_and_losses(cnn,
-                               style_img, content_img,
-                               content_layers=['conv_4'],
-                               style_layers=['conv_1', 'conv_2', 'conv_3', 'conv_4', 'conv_5']):
+    :param content_img: The content image.
+    :param width: The width of the noise image.
+    :param height: The height of the noise image.
+    :param device: The device to use.
+
+    :return: The noise image.
+    """
+
+    width = width if width else content_img.shape[-1]
+    height = height if height else content_img.shape[-2]
+
+    return torch.randn((1, 3, height, width), device=device)
+
+def _get_style_model_and_losses(
+        cnn: nn.Module,
+        style_img: torch.Tensor,
+        content_img: torch.Tensor,
+        content_layers: List[str] = ['conv_4'],
+        style_layers: List[str] = ['conv_1', 'conv_2', 'conv_3', 'conv_4', 'conv_5']
+    ):
+    """
+    Get the style transfer model and the losses.
+
+    :param cnn: The CNN to use.
+    :param style_img: The style image.
+    :param content_img: The content image.
+    :param content_layers: The content layers.
+    :param style_layers: The style layers.
+
+    :return: The style transfer model and the losses.
+    """
 
     # normalization module
     normalization = Normalization(cnn.norm_mean, cnn.norm_std, cnn.device).to(cnn.device)
@@ -74,10 +103,29 @@ def _get_style_model_and_losses(cnn,
     return model, style_losses, content_losses
 
 
-def run_style_transfer(cnn, content_img, style_img, input_img, num_steps=300,
-                       style_weight=1000000, content_weight=1, checkpoint_every=0):
+def run_style_transfer(
+        cnn: nn.Module,
+        content_img: torch.Tensor,
+        style_img: torch.Tensor,
+        input_img: torch.Tensor,
+        num_steps: int = 300,
+        style_weight=1000000,
+        content_weight=1,
+        checkpoint_every=0
+    ):
     """
     Run the style transfer.
+
+    :param cnn: The CNN to use.
+    :param content_img: The content image.
+    :param style_img: The style image.
+    :param input_img: The input image.
+    :param num_steps: The number of steps to run the style transfer.
+    :param style_weight: The style weight.
+    :param content_weight: The content weight.
+    :param checkpoint_every: The number of steps to run before saving a checkpoint.
+
+    :return: The output image.
     """
 
     print('Building the style transfer model..')
@@ -138,6 +186,8 @@ def run_style_transfer(cnn, content_img, style_img, input_img, num_steps=300,
                 )
 
             if checkpoint_every > 0 and run[0] % checkpoint_every == 0:
+                print("Saving checkpoint..")
+
                 checkpoints.append(input_img.clone())
 
             return style_score + content_score

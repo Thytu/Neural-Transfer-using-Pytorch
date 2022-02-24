@@ -1,54 +1,78 @@
-import os
-import time
-import argparse
+import gradio as gr
 
+from typing import List
 from VGG19 import load_model
+from data_handler import image_to_tensor, tensor_to_image
 from style_handler import run_style_transfer, create_noise_input
-from data_handler import show_tensor_image, load_image_to_tensor, save_tensor_image
 
 
-def init_parser():
-    parser = argparse.ArgumentParser()
+def fuse_image(
+        content,
+        style,
+        checkboxes: List[str],
+        nb_step: int,
+        width: int,
+        height: int,
+        style_weight: float,
+        content_weight: float,
+    ):
+    """
+    Fuse content and style image
 
-    parser.add_argument('-s', '--style_image', required=True)
-    parser.add_argument('-c', '--content-image', required=True)
-    parser.add_argument('-n', '--steps', default=300, type=int)
-    parser.add_argument('-b', '--blanck-noise', default=False, type=bool)
-    parser.add_argument('-ch', '--checkpoint', default=0, type=int)
+    :param content: content image
+    :param style: style image
+    :param blanck_noise: if True, create a random noise image
+    :param nb_step: number of iteration for style transfer
+    :param width: width of the target image
+    :param height: height of the target image
 
-    return parser
+    :return: fused image
+    """
+
+    cpu_only = "CPU Only (for low GPU memory)" in checkboxes
+    blanck_noise = "Blanck Noise" in checkboxes
+
+    model = MODEL if not cpu_only else MODEL.cpu()
+
+    width = int(width) if width else None
+    height = int(height) if height else None
+
+    content = image_to_tensor(content, width=width, height=height, device=model.device)
+
+    output, _ = run_style_transfer(
+        model,
+        content_img=content,
+        style_img=image_to_tensor(style, width=width, height=height, device=model.device),
+        input_img=create_noise_input(content, width=width, height=height, device=model.device) if blanck_noise else content.clone(),
+        num_steps=nb_step,
+        style_weight=style_weight,
+        content_weight=content_weight
+    )
+
+    del content
+
+    return tensor_to_image(output)
 
 
 if __name__ == '__main__':
-    parser = init_parser()
-    args = parser.parse_args()
 
-    OUTPUT_DIR = "outputs"
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
+    MODEL = load_model()
 
-    CHECKPOINT_DIR = "checkpoints"
-    if not os.path.exists(CHECKPOINT_DIR):
-        os.makedirs(CHECKPOINT_DIR)
+    iface = gr.Interface(fn=fuse_image, inputs=[
+        gr.inputs.Image(label="Content image"),
+        gr.inputs.Image(label="Style image"),
+        gr.inputs.CheckboxGroup(["Blanck Noise", "CPU Only (for low GPU memory)"], default=[False, False], type="value", label=None),
+        gr.inputs.Number(default=15, label="Number of step", optional=False),
+        gr.inputs.Number(label="Image width", optional=True),
+        gr.inputs.Number(label="Image height", optional=True),
+        gr.inputs.Number(default=1000000, label="Style weight", optional=False),
+        gr.inputs.Number(default=1, label="Content weight", optional=False),
+    ], outputs=[
+        gr.outputs.Image(label="Resulting image"),
+    ],
+        layout="horizontal", title="Neural Transfert",
+        description="Implementation of the pytorch's neural transfer tutorial: https://pytorch.org/tutorials/advanced/neural_style_tutorial.html",
+        theme="huggingface",
+    )
 
-    STYLE_IMG, CONTENT_IMG, NUM_STEPS, BLANCK_NOISE, CHECKPOINT_EVERY = args.style_image, args.content_image, args.steps, args.blanck_noise, args.checkpoint
-    assert os.path.isfile(STYLE_IMG), "Style image not found"
-    assert os.path.isfile(CONTENT_IMG), "Content image not found"
-
-    STYLE_IMG = load_image_to_tensor(STYLE_IMG)
-    CONTENT_IMG = load_image_to_tensor(CONTENT_IMG)
-    assert STYLE_IMG.size() == CONTENT_IMG.size(), "style and content images do not have the same size"
-
-    cnn = load_model()
-
-    INPUT_IMG = create_noise_input(CONTENT_IMG, cnn.device) if BLANCK_NOISE else CONTENT_IMG.clone()
-    show_tensor_image(INPUT_IMG, title='Input Image')
-
-    output, checkpoints = run_style_transfer(cnn, CONTENT_IMG, STYLE_IMG, INPUT_IMG, num_steps=NUM_STEPS, checkpoint_every=CHECKPOINT_EVERY)
-
-    ts = time.time()
-    save_tensor_image(output, f"{OUTPUT_DIR}/{ts}_output.png")
-    for idx, c in enumerate(checkpoints):
-        save_tensor_image(c, f"{CHECKPOINT_DIR}/{ts}_checkoint_{idx}.png")
-
-    show_tensor_image(output, title='Output Image')
+    iface.launch(enable_queue=False)
