@@ -17,8 +17,8 @@ class Model(nn.Module):
     def forward(self, x):
         return self._model(x)
 
-def _load_device():
+def _load_device() -> torch.device :
     return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def load_model():
+def load_model() -> nn.Module :
     return Model(_load_device())
